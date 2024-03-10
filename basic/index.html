@@ -1,0 +1,89 @@
+<!doctype html>
+<html class="no-js" lang="" xmlns="">
+<head>
+    <meta charset="utf-8">
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    <title>Cognito-AppSync-Client</title>
+    <script>
+        const BASE_URL = 'http://localhost:8080';
+
+        const COGNITO = {
+            RESPONSE_TYPE: {
+                CODE: 'code',
+                TOKEN: 'token'
+            },
+            GRANT_TYPE: {
+                AUTHORIZATION_CODE: 'authorization_code',
+            },
+            URL: '${COGNITO.URL}',
+            CLIENT: {
+                ID: '${COGNITO.CLIENT.ID}',
+            },
+            ID_TOKEN: 'id_token'
+        }
+
+        const APP_SYNC = {
+            URL: '${APPSYNC.URL}',
+            QUERY: '${APPSYNC.QUERY}'
+        }
+
+        function processLogin(urlSearchParams) {
+            const token = urlSearchParams.get(COGNITO.ID_TOKEN);
+            localStorage.setItem(COGNITO.ID_TOKEN, token);
+            window.document.location = BASE_URL;
+        }
+
+        function isExpired(token) {
+            let claimsIndex = token.indexOf('.') + 1;
+            let claims = JSON.parse(atob(token.substring(claimsIndex, token.indexOf('.', claimsIndex))));
+
+            return claims.exp <= Math.floor(Date.now() / 1000);
+        }
+
+        function redirectToLogin() {
+            const urlSearchParams = new URLSearchParams({
+                client_id: COGNITO.CLIENT.ID,
+                response_type: COGNITO.RESPONSE_TYPE.TOKEN,
+                redirect_uri: BASE_URL,
+            });
+            window.document.location = new URL(`${COGNITO.URL}/login?${urlSearchParams}`).toString();
+        }
+
+        function fetchData(token) {
+            fetch(`${APP_SYNC.URL}?query=${APP_SYNC.QUERY}`, {
+                headers: {
+                    'Authorization': token,
+                }
+            }).then(_ => _.json()
+                .then(_ => window.document.getElementById('data').innerText = JSON.stringify(_)))
+        }
+
+        const urlSearchParams = new URLSearchParams(document.location.hash.substring(1));
+        const loggingIn = urlSearchParams.has(COGNITO.ID_TOKEN);
+
+        if (loggingIn) {
+            processLogin(urlSearchParams);
+        } else {
+            const token = localStorage.getItem(COGNITO.ID_TOKEN);
+            const loggedIn = token !== null;
+
+            if (loggedIn) {
+                const expired = isExpired(token);
+
+                if (expired) {
+                    localStorage.removeItem(COGNITO.ID_TOKEN);
+                    redirectToLogin();
+                } else {
+                    fetchData(token);
+                }
+            } else {
+                redirectToLogin();
+            }
+        }
+    </script>
+</head>
+<body>
+<div id="data">
+</div>
+</body>
+</html>

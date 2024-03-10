@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  nginx:
+    build: .
+    volumes:
+      - ./index.html:/etc/nginx/html/index.html
+    ports:
+      - "8080:80"
